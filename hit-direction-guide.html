@@ -188,7 +188,7 @@ canvas{border-radius:var(--r);display:block;width:100%;height:auto}
       <p style="font-size:13px;color:var(--tx2);line-height:1.9">범위 공격이 많고 밀고 당기기 상황이 상당히 다양하게 발생하기 때문에, 피격 시 <strong style="color:var(--tx)">"어디로 밀려나는가"</strong>에 대한 데이터 드리븐이 명확해야 합니다. 기획자가 스킬별로 밀림 방향을 직접 정의하고 예측할 수 있어야 하며, 이를 통해 유저가 <strong style="color:var(--gold)">불쾌하지 않게 몬스터를 드리블할 수 있는 구조</strong>를 만들어야 합니다.<br><br>이 문서는 피격 리액션의 <strong style="color:var(--tx)">방향(Hit Direction)</strong>을 데이터로 제어하기 위한 시스템 설계와, 각 타입별 동작을 시뮬레이션으로 검증할 수 있도록 작성되었습니다.</p>
     </div>
 
-    <div class="reveal" style="margin-bottom:1.5rem">
+    <div class="reveal" style="margin-bottom:1.5rem" data-panel="dribble">
       <h3 style="font-size:14px;margin-bottom:.75rem">몬스터 드리블 플레이 예시</h3>
       <p style="font-size:12px;color:var(--tx2);margin-bottom:.75rem;line-height:1.8">플레이어가 공격을 이어갈수록 다수 전투 상황에서 몬스터가 자연스럽게 모이게 되어, 불쾌하지 않은 <strong style="color:var(--gold)">몬스터 드리블 플레이</strong> 경험을 제공합니다.</p>
       <div style="display:flex;gap:1rem;align-items:flex-start">
@@ -511,7 +511,7 @@ canvas{border-radius:var(--r);display:block;width:100%;height:auto}
     <h2 class="reveal">통합 시뮬레이션</h2>
     <p class="lead reveal">모든 설정을 자유롭게 조합해 Hit Direction의 결과를 확인합니다. 몬스터를 드래그해 위치를 바꿔보세요.</p>
 
-    <div class="grid-sim reveal">
+    <div class="grid-sim reveal" data-panel="sim">
       <div class="card">
         <div class="sg">
           <label>프리셋</label>
@@ -657,7 +657,7 @@ canvas{border-radius:var(--r);display:block;width:100%;height:auto}
       </div>
     </div>
 
-    <div class="card reveal" style="margin-bottom:1.5rem">
+    <div class="card reveal" style="margin-bottom:1.5rem" data-panel="facing-diagram">
       <h3 style="font-size:14px;margin-bottom:1rem">판정 기준 — 피격자의 Forward 기준 각도</h3>
       <div style="display:flex;justify-content:center;margin:1rem 0">
         <canvas id="cvs-facing-diagram" width="600" height="600" style="border-radius:var(--r);width:100%;height:auto;max-width:600px"></canvas>
@@ -699,7 +699,7 @@ canvas{border-radius:var(--r);display:block;width:100%;height:auto}
       </div>
     </div>
 
-    <div class="card reveal" style="margin-bottom:1.5rem">
+    <div class="card reveal" style="margin-bottom:1.5rem" data-panel="facing-sim">
       <h3 style="font-size:14px;margin-bottom:1rem">Facing 회전 시뮬레이터</h3>
       <p style="font-size:12px;color:var(--tx2);margin-bottom:1rem">밀림 방향 화살표를 드래그해 방향을 바꿔보세요. 몬스터의 삼각형을 드래그해 Facing을 변경할 수 있습니다.</p>
       <div style="display:flex;justify-content:center">
@@ -2609,8 +2609,62 @@ setSimType(0);
 (function(){
   const params=new URLSearchParams(window.location.search);
   const block=params.get('block');
-  if(!block)return;
+  const panel=params.get('panel');
+  if(!block&&!panel)return;
 
+  // 공통: nav, hero, footer, ghb 숨김
+  function hideChrome(){
+    const nav=document.querySelector('nav');
+    if(nav)nav.style.display='none';
+    document.querySelectorAll('.hero, #ghb-panel, #ghb-tab').forEach(el=>{el.style.display='none';});
+    document.querySelectorAll('body > div').forEach(div=>{
+      if(div.textContent.includes('Hit Direction System Guide'))div.style.display='none';
+    });
+    document.body.style.paddingTop='0';
+    if(params.get('transparent')==='1'){
+      document.body.style.background='transparent';
+    }
+  }
+
+  // --- panel 모드: 특정 요소만 표시 ---
+  if(panel){
+    hideChrome();
+    const target=document.querySelector('[data-panel="'+panel+'"]');
+    if(!target)return;
+
+    // 모든 섹션 숨김
+    document.querySelectorAll('section').forEach(sec=>{sec.style.display='none';});
+
+    // 대상의 부모 섹션만 표시하되 다른 자식은 숨김
+    const parentSec=target.closest('section');
+    if(parentSec){
+      parentSec.style.display='';
+      parentSec.style.padding='1rem 0';
+      // 섹션 내 .wrap 의 직계 자식 중 대상이 아닌 것 숨김
+      const wrap=parentSec.querySelector('.wrap');
+      if(wrap){
+        [...wrap.children].forEach(child=>{
+          if(!child.contains(target)&&child!==target){
+            child.style.display='none';
+          }
+        });
+      }
+    }
+
+    // reveal 즉시 표시
+    target.classList.add('vis');
+    target.querySelectorAll('.reveal').forEach(el=>{el.classList.add('vis');});
+
+    // 높이 제한
+    const h=params.get('h');
+    if(h){
+      document.body.style.height=h+'px';
+      document.body.style.overflow='hidden';
+    }
+    return;
+  }
+
+  // --- block 모드: 섹션 단위 표시 ---
   const blockMap={
     'dribble':'overview',
     'types':'types',
@@ -2622,16 +2676,7 @@ setSimType(0);
   const targetId=blockMap[block];
   if(!targetId)return;
 
-  // nav, hero, footer, ghb-panel, ghb-tab 숨김
-  const nav=document.querySelector('nav');
-  if(nav)nav.style.display='none';
-  document.querySelectorAll('.hero, #ghb-panel, #ghb-tab').forEach(el=>{el.style.display='none';});
-  // footer
-  document.querySelectorAll('body > div').forEach(div=>{
-    if(div.textContent.includes('Hit Direction System Guide'))div.style.display='none';
-  });
-
-  // 모든 섹션 숨기고 대상만 표시
+  hideChrome();
   document.querySelectorAll('section').forEach(sec=>{
     if(sec.id===targetId){
       sec.style.paddingTop='1rem';
@@ -2640,14 +2685,6 @@ setSimType(0);
       sec.style.display='none';
     }
   });
-
-  // body 여백 제거
-  document.body.style.paddingTop='0';
-
-  // 배경 투명 옵션
-  if(params.get('transparent')==='1'){
-    document.body.style.background='transparent';
-  }
 })();
 </script>
 </body>
